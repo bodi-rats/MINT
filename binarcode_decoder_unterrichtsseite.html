@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Binärcode entschlüsseln (ASCII · 8-Bit)</title>
+  <style>
+    :root{
+      --bg:#f6f7fb; --card:#ffffff; --text:#111827; --muted:#6b7280; --accent:#2563eb; --ok:#059669; --bad:#dc2626; --radius:14px;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;padding:24px;background:radial-gradient(1200px 600px at 0% -10%, #e7efff, transparent),var(--bg);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
+    .wrap{max-width:900px;margin:0 auto}
+    h1{margin:0 0 8px;text-align:center}
+    p.lead{margin:0 0 16px;text-align:center;color:var(--muted)}
+    .card{background:var(--card);border-radius:var(--radius);box-shadow:0 10px 30px rgba(0,0,0,.06);padding:18px}
+    .bin{font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;background:#0b1020;color:#e5ecff;border-radius:12px;padding:14px;line-height:1.5;overflow:auto}
+    .toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:12px 0}
+    input[type="text"]{padding:10px 12px;border:1px solid #d1d5db;border-radius:10px;min-width:260px}
+    button{border:none;border-radius:10px;padding:10px 12px;background:var(--accent);color:#fff;cursor:pointer}
+    button.secondary{background:#374151}
+    button.ghost{background:transparent;color:var(--accent);border:1px solid #bfd3ff}
+    .feedback{font-weight:700;margin-left:6px}
+    .ok{color:var(--ok)}
+    .bad{color:var(--bad)}
+    details{margin-top:10px;border:1px dashed #c7d2fe;border-radius:12px;padding:10px;background:#fff}
+    details summary{cursor:pointer;font-weight:600}
+    table{border-collapse:collapse;width:100%;margin-top:8px}
+    th,td{border:1px solid #e5e7eb;padding:6px;text-align:center}
+    th{background:#eef2ff}
+    .muted{color:var(--muted)}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+    .pill{background:#eef2ff;color:#3730a3;border-radius:999px;padding:4px 10px;font-size:12px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Binärcode entschlüsseln</h1>
+    <p class="lead">Aufgabe: Der folgende <b>8‑Bit ASCII</b>-Binärcode stellt einen Text dar. Übersetze ihn in Klartext und gib ihn unten ein.</p>
+
+    <div class="card">
+      <div class="pill" id="taskInfo">Rätsel 1 von 5</div>
+      <pre id="binfeld" class="bin"></pre>
+
+      <div class="toolbar">
+        <input id="eingabe" type="text" placeholder="Dein Klartext (Großbuchstaben, Leerzeichen)" />
+        <button id="btnCheck">Prüfen</button>
+        <button id="btnNeu" class="secondary">Neues Rätsel</button>
+        <span id="feedback" class="feedback"></span>
+      </div>
+
+      <details>
+        <summary>Hinweis anzeigen (ASCII & Vorgehen)</summary>
+        <p class="muted">1) Teile den Code in 8‑Bit‑Blöcke. 2) Wandle jeden Block von Binär → Dezimal → ASCII‑Zeichen. 3) Achte auf <code>00100000</code> = Leerzeichen.</p>
+        <div class="grid">
+          <div>
+            <table>
+              <thead><tr><th>Zeichen</th><th>ASCII</th><th>Binär</th></tr></thead>
+              <tbody id="asciiKurz"></tbody>
+            </table>
+          </div>
+          <div>
+            <p><b>Beispiel</b></p>
+            <pre class="bin">01001000 01000001 = 72 65 = H A</pre>
+          </div>
+        </div>
+      </details>
+    </div>
+
+    <p class="muted" style="text-align:center;margin-top:12px">Funktioniert offline · Nur ASCII (A–Z, Leerzeichen)</p>
+  </div>
+
+  <script>
+    // Vordefinierte Rätsel (ASCII‑kompatibel)
+    const tasks = [
+      {
+        plain: "HALLO WELT",
+        bin: "01001000 01000001 01001100 01001100 01001111 00100000 01010111 01000101 01001100 01010100"
+      },
+      {
+        plain: "INFORMATIK MACHT SPASS",
+        bin: "01001001 01001110 01000110 01001111 01010010 01001101 01000001 01010100 01001001 01001011 00100000 01001101 01000001 01000011 01001000 01010100 00100000 01010011 01010000 01000001 01010011 01010011"
+      },
+      {
+        plain: "BITTE DEKODIERE MICH",
+        bin: "01000010 01001001 01010100 01010100 01000101 00100000 01000100 01000101 01001011 01001111 01000100 01001001 01000101 01010010 01000101 00100000 01001101 01001001 01000011 01001000"
+      },
+      {
+        plain: "ASCII IST COOL",
+        bin: "01000001 01010011 01000011 01001001 01001001 00100000 01001001 01010011 01010100 00100000 01000011 01001111 01001111 01001100"
+      },
+      {
+        plain: "PROGRAMMIEREN MACHT FREUDE",
+        bin: "01010000 01010010 01001111 01000111 01010010 01000001 01001101 01001101 01001001 01000101 01010010 01000101 01001110 00100000 01001101 01000001 01000011 01001000 01010100 00100000 01000110 01010010 01000101 01010101 01000100 01000101"
+      }
+    ];
+
+    // ASCII‑Hilfe (gekürzt): Ziffern + Großbuchstaben + Leerzeichen
+    function buildAsciiTable() {
+      const body = document.getElementById('asciiKurz');
+      const rows = [];
+      // Leerzeichen
+      rows.push(['(Leerzeichen)', 32, '00100000']);
+      // Ziffern 0-9 (48-57)
+      for (let c = 48; c <= 57; c++) rows.push([String.fromCharCode(c), c, c.toString(2).padStart(8,'0')]);
+      // A-Z (65-90)
+      for (let c = 65; c <= 90; c++) rows.push([String.fromCharCode(c), c, c.toString(2).padStart(8,'0')]);
+      body.innerHTML = rows.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td><td><code>${r[2]}</code></td></tr>`).join('');
+    }
+
+    let current = 0;
+    function showTask(i){
+      current = i;
+      document.getElementById('binfeld').textContent = tasks[i].bin;
+      document.getElementById('eingabe').value='';
+      document.getElementById('feedback').textContent='';
+      document.getElementById('feedback').className='feedback';
+      document.getElementById('taskInfo').textContent = `Rätsel ${i+1} von ${tasks.length}`;
+    }
+
+    function check(){
+      const val = document.getElementById('eingabe').value.trim().toUpperCase().replace(/\s+/g,' ');
+      const target = tasks[current].plain.toUpperCase();
+      const fb = document.getElementById('feedback');
+      if (!val){ fb.textContent = 'Bitte gib einen Klartext ein.'; fb.className='feedback bad'; return; }
+      if (val === target){ fb.textContent = '✔ Richtig!'; fb.className='feedback ok'; }
+      else { fb.textContent = '✘ Nicht ganz. Tipp: Prüfe die 8‑Bit‑Gruppierung und 00100000 = Leerzeichen.'; fb.className='feedback bad'; }
+    }
+
+    function neuesRaetsel(){
+      const i = Math.floor(Math.random()*tasks.length);
+      showTask(i);
+    }
+
+    // Init
+    buildAsciiTable();
+    showTask(0);
+    document.getElementById('btnCheck').addEventListener('click', check);
+    document.getElementById('btnNeu').addEventListener('click', neuesRaetsel);
+    document.getElementById('eingabe').addEventListener('keydown', (e)=>{ if(e.key==='Enter') check(); });
+  </script>
+</body>
+</html>
