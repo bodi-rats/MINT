@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Binäre Addition — 2 bis 3 × 8‑Bit</title>
+<style>
+  :root{--bg:#f6f7fb;--card:#fff;--text:#0f172a;--muted:#475569;--accent:#0ea5e9;--ok:#059669;--bad:#ef4444;--radius:12px}
+  *{box-sizing:border-box}
+  body{font-family:Inter,system-ui,Segoe UI,Roboto,Arial;margin:20px;background:linear-gradient(180deg,#eef2ff,white)}
+  .wrap{max-width:980px;margin:0 auto}
+  h1{margin:0 0 6px}
+  p.lead{margin:0 0 16px;color:var(--muted)}
+  .card{background:var(--card);padding:16px;border-radius:var(--radius);box-shadow:0 8px 30px rgba(2,6,23,.08)}
+  .controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+  label{font-size:14px;color:var(--muted)}
+  select,input[type=number]{padding:6px 8px;border-radius:8px;border:1px solid #e6eef8}
+  button{background:var(--accent);color:white;border:none;padding:8px 12px;border-radius:10px;cursor:pointer}
+  .row{display:flex;gap:12px;align-items:center;margin:8px 0}
+  .binbox{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;padding:10px 12px;border-radius:10px;background:#071022;color:#e6f6ff}
+  .inputs{display:flex;flex-direction:column;gap:8px}
+  .result{margin-top:12px;display:flex;gap:12px;align-items:center}
+  .feedback{font-weight:700}
+  .ok{color:var(--ok)}
+  .bad{color:var(--bad)}
+  table{border-collapse:collapse;margin-top:12px}
+  td,th{border:1px solid #e6eef8;padding:6px;text-align:center;font-family:ui-monospace,monospace}
+  th{background:#eef8ff}
+  .small{font-size:13px;color:var(--muted)}
+  .carry{color:#dc2626;font-weight:700}
+  .dec{color:#0b1220;font-weight:700}
+  .note{margin-top:10px;color:var(--muted);font-size:14px}
+  @media(max-width:680px){.row{flex-direction:column;align-items:stretch}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Binäre Addition (2–3 × 8‑Bit)</h1>
+  <p class="lead">Generiere zufällige 8‑Bit‑Zahlen, addiere 2 oder 3 Operanden und überprüfe die Binärsumme. Du kannst das Ergebnis als Binärzahl eingeben — die Seite zeigt dir auch die Dezimalwerte, Carry‑Kette und die richtige Antwort.</p>
+
+  <div class="card">
+    <div class="controls">
+      <label>Operanden:
+        <select id="anzahl">
+          <option value="2">2</option>
+          <option value="3">3</option>
+        </select>
+      </label>
+      <button id="btnGen">Neue Zahlen</button>
+      <button id="btnFillRandom">Zufällig füllen</button>
+      <button id="btnCheck">Prüfen</button>
+      <button id="btnShow" style="background:#374151">Richtige Lösung zeigen</button>
+      <div style="margin-left:auto" class="small">Hinweis: Eingabe als z.B. <code>00011010 00100101</code> oder ohne Leerzeichen <code>0001101000100101</code>.</div>
+    </div>
+
+    <div class="row">
+      <div class="inputs" id="inputs"></div>
+      <div style="min-width:220px">
+        <div class="small">Summe (Binär eingeben):</div>
+        <input id="userSum" type="text" placeholder="z. B. 00011010 00100101" style="width:100%;padding:8px;border-radius:8px;border:1px solid #e6eef8;margin-top:6px">
+        <div style="margin-top:8px" class="small">Dezimalwert (wird nach Prüfen gezeigt): <span id="decShow" class="dec">-</span></div>
+      </div>
+    </div>
+
+    <div class="result">
+      <div>
+        <div class="small">Generierte Zahlen (8‑Bit)</div>
+        <div id="generated" class="binbox">—</div>
+      </div>
+      <div>
+        <div class="small">Carry‑Kette (von LSB → MSB)</div>
+        <div id="carry" class="binbox">—</div>
+      </div>
+      <div>
+        <div class="small">Richtiges Ergebnis (Binär)</div>
+        <div id="correct" class="binbox">—</div>
+      </div>
+    </div>
+
+    <div id="checkFeedback" class="feedback" style="margin-top:10px"></div>
+
+    <details style="margin-top:12px">
+      <summary style="cursor:pointer">Schritt‑für‑Schritt: Bitweise Addition mit Carry</summary>
+      <div id="stepsArea" style="padding:10px"></div>
+    </details>
+
+    <div class="note">Beachte: Drei 8‑Bit‑Zahlen können bis zu 10 Bit Ergebnislänge benötigen (Overflow möglich). Die Seite berechnet die minimal nötige Bitlänge automatisch.</div>
+  </div>
+</div>
+
+<script>
+  // Hilfsfunktionen
+  function to8bit(n){ return n.toString(2).padStart(8,'0'); }
+  function cleanBin(s){ return s.replace(/[^01]/g,''); }
+  function chunk(str,len){ const a=[]; for(let i=0;i<str.length;i+=len) a.push(str.slice(i,i+len)); return a; }
+
+  const inputsDiv = document.getElementById('inputs');
+  const generatedDiv = document.getElementById('generated');
+  const correctDiv = document.getElementById('correct');
+  const carryDiv = document.getElementById('carry');
+  const stepsArea = document.getElementById('stepsArea');
+  const decShow = document.getElementById('decShow');
+  const checkFeedback = document.getElementById('checkFeedback');
+
+  let numbers = [0,0];
+
+  function renderInputs(count){
+    inputsDiv.innerHTML = '';
+    for(let i=0;i<count;i++){
+      const wrapper = document.createElement('div');
+      wrapper.style.display='flex'; wrapper.style.gap='8px'; wrapper.style.alignItems='center';
+      const label = document.createElement('div'); label.textContent = `Zahl ${i+1} (dez):`; label.className='small';
+      const inNum = document.createElement('input'); inNum.type='number'; inNum.min=0; inNum.max=255; inNum.value=numbers[i]||0; inNum.style.padding='6px'; inNum.style.borderRadius='8px'; inNum.style.border='1px solid #e6eef8'; inNum.style.width='100px';
+      const bin = document.createElement('div'); bin.className='binbox'; bin.style.marginLeft='6px'; bin.style.minWidth='140px'; bin.textContent = to8bit(Number(inNum.value));
+      inNum.addEventListener('input', ()=>{ let v = parseInt(inNum.value)||0; if(v<0)v=0; if(v>255)v=255; numbers[i]=v; bin.textContent = to8bit(v); updateGenerated(); });
+      wrapper.appendChild(label); wrapper.appendChild(inNum); wrapper.appendChild(bin);
+      inputsDiv.appendChild(wrapper);
+    }
+    updateGenerated();
+  }
+
+  function updateGenerated(){
+    const bins = numbers.map(n=>to8bit(n));
+    generatedDiv.textContent = bins.join('  ');
+    computeCorrect();
+  }
+
+  function computeCorrect(){
+    const sum = numbers.reduce((a,b)=>a+b,0);
+    const maxBits = Math.max(8, Math.ceil(Math.log2(sum+1)));
+    const bin = sum.toString(2).padStart(maxBits,'0');
+    correctDiv.textContent = chunk(bin,8).join(' ');
+    // carry calculation (bitwise)
+    const carries = []; // from LSB to MSB
+    let carry=0;
+    const bitArrays = numbers.map(n=>n.toString(2).padStart(maxBits,'0').split('').reverse());
+    for(let i=0;i<maxBits;i++){
+      let columnSum = carry;
+      for(const bits of bitArrays) columnSum += Number(bits[i]||0);
+      const bit = columnSum % 2;
+      carry = Math.floor(columnSum/2);
+      carries.push(String(carry));
+    }
+    carryDiv.textContent = carries.join(' ');
+    renderSteps(bitArrays, carries, maxBits);
+    decShow.textContent = sum;
+  }
+
+  function renderSteps(bitArrays, carries, bits){
+    // show table from MSB -> LSB for readability
+    const rows=[];
+    const headers=['Bit index'];
+    for(let i=0;i<bits;i++) headers.push(bits-1-i);
+    rows.push(headers);
+    for(let r=0;r<bitArrays.length;r++){
+      const row = [`Z${r+1}`];
+      for(let i=bits-1;i>=0;i--) row.push(bitArrays[r][i]||'0');
+      rows.push(row);
+    }
+    // carry (after computing column), show from MSB->LSB
+    const carryRow = ['Carry(after)'];
+    for(let i=bits-1;i>=0;i--) carryRow.push(carries[i]);
+    rows.push(carryRow);
+
+    // build HTML table
+    let html = '<table><tr>' + rows[0].map(h=>`<th>${h}</th>`).join('') + '</tr>';
+    for(let i=1;i<rows.length;i++) html += '<tr>' + rows[i].map(c=>`<td>${c}</td>`).join('') + '</tr>';
+    html += '</table>';
+    stepsArea.innerHTML = html;
+  }
+
+  // events
+  document.getElementById('anzahl').addEventListener('change', e=>{
+    const cnt = parseInt(e.target.value,10);
+    while(numbers.length<cnt) numbers.push(0);
+    numbers = numbers.slice(0,cnt);
+    renderInputs(cnt);
+  });
+
+  document.getElementById('btnGen').addEventListener('click', ()=>{
+    const cnt = parseInt(document.getElementById('anzahl').value,10);
+    numbers = Array.from({length:cnt}, ()=>Math.floor(Math.random()*256));
+    renderInputs(cnt);
+  });
+
+  document.getElementById('btnFillRandom').addEventListener('click', ()=>{
+    // alias of btnGen
+    document.getElementById('btnGen').click();
+  });
+
+  document.getElementById('btnCheck').addEventListener('click', ()=>{
+    const user = cleanBin(document.getElementById('userSum').value);
+    if(!user){ checkFeedback.textContent='Bitte gib eine Binärzahl ein.'; checkFeedback.className='feedback bad'; return; }
+    const correct = cleanBin(correctDiv.textContent);
+    // Allow user to enter lower/upper bits: align right
+    // compare after removing leading zeros
+    function trimLead(s){ return s.replace(/^0+/, '') || '0'; }
+    if(trimLead(user) === trimLead(correct)){
+      checkFeedback.textContent='✔ Korrekt!'; checkFeedback.className='feedback ok';
+    } else {
+      checkFeedback.textContent='✘ Falsch. Prüfe Carry und Bitlänge (rechte Ausrichtung).'; checkFeedback.className='feedback bad';
+    }
+    // show decimal of user's input
+    const dec = user ? parseInt(user,2) : NaN;
+    decShow.textContent = isNaN(dec) ? '-' : dec;
+  });
+
+  document.getElementById('btnShow').addEventListener('click', ()=>{
+    document.getElementById('userSum').value = correctDiv.textContent.replace(/\s+/g,'');
+    document.getElementById('btnCheck').click();
+  });
+
+  // initial render
+  renderInputs(2);
+  // expose numbers for console debugging
+  window._binAdd_numbers = numbers;
+</script>
+</body>
+</html>
