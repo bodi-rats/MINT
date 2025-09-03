@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quiz: Informatik-Persönlichkeiten</title>
+<style>
+  body{font-family:Arial,sans-serif;background:#f0f4f8;color:#1f2937;padding:20px}
+  h1{text-align:center}
+  .quiz-container{max-width:700px;margin:0 auto;background:#fff;padding:20px;border-radius:12px;box-shadow:0 6px 20px rgba(0,0,0,.1)}
+  .question{margin-bottom:12px;font-weight:600}
+  .options button{display:block;margin:6px 0;padding:8px 12px;border:none;border-radius:8px;background:#3b82f6;color:#fff;cursor:pointer}
+  .options button.correct{background:#16a34a}
+  .options button.wrong{background:#dc2626}
+  .feedback{font-weight:700;margin-top:8px}
+  .score{margin-top:16px;font-size:18px;text-align:center;font-weight:700}
+</style>
+</head>
+<body>
+<div class="quiz-container">
+<h1>Quiz: Informatik-Persönlichkeiten</h1>
+<div id="quiz"></div>
+<div id="score" class="score"></div>
+<button id="btnRestart" style="display:none;background:#f59e0b">Quiz neu starten</button>
+</div>
+<script>
+const quizData=[
+  {
+    question:"Wer entwickelte das Dualsystem, das Grundlage für moderne Computer ist?",
+    options:["Johann Gottfried Leibniz","Ada Lovelace","Konrad Zuse","Alan Turing"],
+    answer:"Johann Gottfried Leibniz"
+  },
+  {
+    question:"Wer schrieb das erste bekannte Computerprogramm?",
+    options:["Ada Lovelace","Joseph Weizenbaum","Tim Berners-Lee","Alan Turing"],
+    answer:"Ada Lovelace"
+  },
+  {
+    question:"Wer baute den ersten programmgesteuerten Rechner (Z3)?",
+    options:["Konrad Zuse","Alan Turing","Johann Gottfried Leibniz","Ada Lovelace"],
+    answer:"Konrad Zuse"
+  },
+  {
+    question:"Wer entwickelte das Konzept der Turing-Maschine und trug wesentlich zur KI- und Kryptographie-Forschung bei?",
+    options:["Alan Turing","Joseph Weizenbaum","Tim Berners-Lee","Konrad Zuse"],
+    answer:"Alan Turing"
+  },
+  {
+    question:"Wer entwickelte das bekannte Computerprogramm ELIZA und setzte sich mit Computerethik auseinander?",
+    options:["Joseph Weizenbaum","Ada Lovelace","Johann Gottfried Leibniz","Alan Turing"],
+    answer:"Joseph Weizenbaum"
+  },
+  {
+    question:"Wer erfand das World Wide Web?",
+    options:["Tim Berners-Lee","Konrad Zuse","Alan Turing","Ada Lovelace"],
+    answer:"Tim Berners-Lee"
+  }
+];
+
+let current=0;
+let score=0;
+const quizDiv=document.getElementById('quiz');
+const scoreDiv=document.getElementById('score');
+const btnRestart=document.getElementById('btnRestart');
+
+function showQuestion(){
+  quizDiv.innerHTML='';
+  if(current>=quizData.length){
+    quizDiv.innerHTML='<p>Du hast das Quiz abgeschlossen!</p>';
+    scoreDiv.textContent=`Dein Punktestand: ${score} von ${quizData.length}`;
+    btnRestart.style.display='block';
+    return;
+  }
+  const q=quizData[current];
+  const qEl=document.createElement('div'); qEl.className='question'; qEl.textContent=`Frage ${current+1}: ${q.question}`;
+  quizDiv.appendChild(qEl);
+  const opts=document.createElement('div'); opts.className='options';
+  q.options.forEach(opt=>{
+    const btn=document.createElement('button');
+    btn.textContent=opt;
+    btn.addEventListener('click',()=>checkAnswer(opt,btn));
+    opts.appendChild(btn);
+  });
+  quizDiv.appendChild(opts);
+}
+
+function checkAnswer(selected,btn){
+  const correct=quizData[current].answer;
+  const buttons=document.querySelectorAll('.options button');
+  buttons.forEach(b=>{b.disabled=true;if(b.textContent===correct)b.classList.add('correct');});
+  if(selected===correct){
+    score++; 
+    btn.textContent+=' ✔';
+  } else {
+    btn.classList.add('wrong');
+    btn.textContent+=' ✘';
+  }
+  current++;
+  setTimeout(showQuestion,1000);
+}
+
+btnRestart.addEventListener('click',()=>{
+  current=0; score=0;
+  scoreDiv.textContent='';
+  btnRestart.style.display='none';
+  showQuestion();
+});
+
+showQuestion();
+</script>
+</body>
+</html>
