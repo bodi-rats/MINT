@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>8‑Bit Subtraktion mit Zweierkomplement — Übungen</title>
+  <style>
+    :root{font-family:system-ui,-apple-system,Segoe UI, Roboto, "Helvetica Neue", Arial}
+    body{max-width:1000px;margin:28px auto;padding:20px;background:#f6f8fb;color:#0b0b0b}
+    h1{font-size:1.6rem;margin-bottom:6px}
+    .card{background:#fff;border-radius:10px;padding:16px;margin:12px 0;box-shadow:0 6px 18px rgba(20,20,40,0.06)}
+    .grid{display:grid;grid-template-columns:1fr 240px;gap:12px;align-items:center}
+    label{font-weight:600}
+    .hint{font-size:0.95rem;color:#444}
+    input[type=text]{width:100%;padding:8px;border-radius:8px;border:1px solid #d7d9df;font-family:monospace}
+    button{padding:6px 10px;border-radius:8px;border:0;background:#1f6feb;color:#fff;cursor:pointer}
+    button.secondary{background:#6b7280}
+    .ok{color:#0b7040;font-weight:700}
+    .bad{color:#b91c1c;font-weight:700}
+    .explain{font-size:0.95rem;color:#222;margin-bottom:8px}
+    .steps{background:#fbfdff;border-left:4px solid #1f6feb;padding:10px;margin-top:10px}
+    .solutions{display:none;margin-top:8px}
+    pre{background:#0b1220;color:#e6eefc;padding:10px;border-radius:6px;overflow:auto}
+    footer{font-size:0.85rem;color:#666;margin-top:18px}
+  </style>
+</head>
+<body>
+  <h1>8‑Bit Subtraktion mit Zweierkomplement</h1>
+
+  <div class="card">
+    <h2>Kurze Erklärung (für Schüler)</h2>
+    <div class="explain">
+      <ol>
+        <li>Subtraktion <code>A − B</code> wird als Addition ausgeführt: <code>A + (Zweierkomplement von B)</code>.</li>
+        <li>Zweierkomplement von B: Einerkomplement (Bits invertieren) + 1.</li>
+        <li>Wenn du addierst, betrachte nur die unteren 8 Bit (ein Übertrag über das 8. Bit wird verworfen).</li>
+        <li>Überlauf (signed overflow) tritt auf, wenn das Ergebnis nicht im Bereich −128 … +127 liegt. Bei Addition erkennt man Überlauf mit der bekannten Regel (siehe Schritt-für-Schritt).</li>
+        <li>Prüfe Ergebnis sowohl als 8‑Bit‑Binärstring als auch als Dezimal im Zweierkomplement.</li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Aufgaben</h2>
+    <p class="hint">Für jede Aufgabe: gib das Ergebnis als 8‑Bit Binärzahl <em>und</em> als Dezimalzahl an. Drücke "Prüfen" für die einzelne Aufgabe, um Schritt‑für‑Schritt Rückmeldung zu erhalten.</p>
+
+    <div id="tasks"></div>
+  </div>
+
+  <div style="display:flex;gap:8px;margin-top:8px">
+    <button id="show-all-sol" class="secondary">Alle Lösungen zeigen/verstecken</button>
+    <button id="randomize" class="secondary">Neue Aufgaben (Zufall)</button>
+  </div>
+
+  <footer>Erstellt für den Unterricht — Subtraktion mit 8‑Bit Zweierkomplement.</footer>
+
+  <script>
+    // Startaufgaben (Dezimal) — entspricht dem Paket, das du angefragt hast
+    let exercises = [
+      {A:25, B:13},
+      {A:50, B:17},
+      {A:12, B:20},
+      {A:-15, B:7},
+      {A:-32, B:-12}
+    ];
+
+    // Hilfsfunktionen
+    function to8bitUnsigned(n){ return (n & 0xFF).toString(2).padStart(8,'0'); }
+    function is8bitBin(s){ return /^[01]{8}$/.test(s); }
+    function invertBits(s){ return s.split('').map(b=>b==='0'?'1':'0').join(''); }
+    function addOne8bit(bin){ let carry=1, res=''; for(let i=7;i>=0;i--){ let bit=+bin[i]; let sum=bit+carry; res=(sum%2)+res; carry = sum>1?1:0; } return res; }
+    function decToTwos(n){ if(n>=0) return to8bitUnsigned(n); let mag=Math.abs(n); if(mag>127) return null; let unsigned = mag.toString(2).padStart(8,'0'); let inv = invertBits(unsigned); return addOne8bit(inv); }
+    function twosToDec(bin){ if(!is8bitBin(bin)) return null; if(bin[0]==='0') return parseInt(bin,2); let inv = invertBits(bin); let magBin = addOne8bit(inv); return -parseInt(magBin,2); }
+
+    // Addiere zwei 8‑Bit Binärstrings, gib Ergebnis 8‑bit, carryOut, overflow flag
+    function add8bit(binA, binB){
+      let a = parseInt(binA,2), b = parseInt(binB,2);
+      let sum = (a + b) & 0xFF; // low 8 bits
+      let carryOut = ((a + b) > 0xFF) ? 1 : 0;
+      let rBin = sum.toString(2).padStart(8,'0');
+      // detect signed overflow: if sign bits of operands equal and differ from result
+      let aSign = (a >> 7) & 1, bSign = (b >> 7) & 1, rSign = (sum >> 7) & 1;
+      let overflow = (aSign === bSign) && (rSign !== aSign);
+      return {bin: rBin, carry: carryOut, overflow: overflow};
+    }
+
+    // Subtraktion durch A + two's complement(B)
+    function subtract(Adec, Bdec){
+      // prepare A and B as 8-bit binary (two's complement representation)
+      let A_tw = decToTwos(Adec);
+      let B_tw = decToTwos(Bdec);
+      if(A_tw===null || B_tw===null) return {error:'Wert außerhalb des darstellbaren Bereichs (−128 … 127)'};
+      // compute two's complement of B (i.e. -B)
+      let B_inv = invertBits(B_tw);
+      let B_twoComp = addOne8bit(B_inv); // this is -B in two's complement
+      // add
+      let sumInfo = add8bit(A_tw, B_twoComp);
+      let resultDec = twosToDec(sumInfo.bin);
+      return {
+        Adec, Bdec,
+        A_tw, B_tw,
+        B_inv, B_twoComp,
+        sumBin: sumInfo.bin,
+        carryOut: sumInfo.carry,
+        overflow: sumInfo.overflow,
+        resultDec
+      };
+    }
+
+    // Build UI
+    function renderTasks(){
+      const container = document.getElementById('tasks');
+      container.innerHTML='';
+      exercises.forEach((ex, idx)=>{
+        const card = document.createElement('div');
+        card.className='card';
+        card.innerHTML = `
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div><strong>Aufgabe ${idx+1}:</strong> ${ex.A} − ${ex.B}</div>
+            <div class="small">(oder: ${decToTwos(ex.A)} − ${decToTwos(ex.B)})</div>
+          </div>
+          <div style="margin-top:8px" class="grid">
+            <div>
+              <label>Ergebnis (8‑Bit Binär)</label>
+              <input id="bin-${idx}" placeholder="z. B. 11110010" type="text" />
+            </div>
+            <div>
+              <label>Ergebnis (Dezimal)</label>
+              <input id="dec-${idx}" placeholder="z. B. -10" type="text" />
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button id="check-${idx}">Prüfen</button>
+            <button id="show-${idx}" class="secondary">Schritt zeigen</button>
+          </div>
+          <div id="out-${idx}" class="solutions"></div>
+        `;
+        container.appendChild(card);
+
+        document.getElementById(`check-${idx}`).addEventListener('click', ()=>checkOne(idx));
+        document.getElementById(`show-${idx}`).addEventListener('click', ()=>showSteps(idx));
+      });
+    }
+
+    function checkOne(i){
+      const A = exercises[i].A, B = exercises[i].B;
+      const userBin = document.getElementById(`bin-${i}`).value.trim();
+      const userDecStr = document.getElementById(`dec-${i}`).value.trim();
+      const out = document.getElementById(`out-${i}`);
+      const sol = subtract(A,B);
+      if(sol.error){ out.style.display='block'; out.innerHTML = `<div class=bad>${sol.error}</div>`; return; }
+      let okBin = is8bitBin(userBin) && userBin === sol.sumBin;
+      let okDec = (!isNaN(Number(userDecStr))) && Number(userDecStr) === sol.resultDec;
+      let html = '';
+      if(okBin && okDec){ html += `<div class=ok>Beide Angaben sind korrekt ✓</div>`; }
+      else {
+        if(!okBin) html += `<div class=bad>Binär falsch ✗ — Ihre Eingabe: <code>${userBin||'(leer)'}</code> — Lösung: <code>${sol.sumBin}</code></div>`;
+        if(!okDec) html += `<div class=bad>Dezimal falsch ✗ — Ihre Eingabe: <code>${userDecStr||'(leer)'}</code> — Lösung: <code>${sol.resultDec}</code></div>`;
+      }
+      // add note about carry/overflow
+      html += `<div style="margin-top:8px" class="small">Carry-Out (über das 8. Bit): <strong>${sol.carryOut}</strong>. Signed overflow (Überlauf): <strong>${sol.overflow? 'Ja':'Nein'}</strong>.</div>`;
+      out.style.display='block'; out.innerHTML = html;
+    }
+
+    function showSteps(i){
+      const A = exercises[i].A, B = exercises[i].B;
+      const out = document.getElementById(`out-${i}`);
+      const sol = subtract(A,B);
+      if(sol.error){ out.style.display='block'; out.innerHTML = `<div class=bad>${sol.error}</div>`; return; }
+      let html = `<div class=steps>`;
+      html += `<strong>Schritt‑für‑Schritt</strong><br/>`;
+      html += `<pre>A (dez): ${sol.Adec}\nA (8bit, two's comp): ${sol.A_tw}\nB (dez): ${sol.Bdec}\nB (8bit, two's comp): ${sol.B_tw}</pre>`;
+      html += `<div class="small">Zweierkomplement von B (Einerkomplement + 1):</div>`;
+      html += `<pre>Einerkomplement(B): ${sol.B_inv}\n+1 → Zweierkomplement(B): ${sol.B_twoComp}</pre>`;
+      html += `<div class="small">Addition: A + (Zweierkomplement von B) (nur 8 Bit werden behalten)</div>`;
+      html += `<pre>${sol.A_tw}  (A)\n+ ${sol.B_twoComp}  (-B)\n= ${sol.sumBin}  (Ergebnis 8 Bit)\nCarry-Out: ${sol.carryOut}</pre>`;
+      html += `<div class="small">Interpretation als Dezimal (Zweierkomplement): <strong>${sol.resultDec}</strong></div>`;
+      html += `<div class="small">Signed overflow (Überlauf)? <strong>${sol.overflow? 'Ja' : 'Nein'}</strong></div>`;
+      if(sol.overflow){ html += `<div class=bad style="margin-top:6px">ACHTUNG: Es ist ein Überlauf aufgetreten — das Ergebnis liegt außerhalb des darstellbaren Bereichs (−128 … 127).</div>`; }
+      html += `</div>`;
+      out.style.display='block'; out.innerHTML = html;
+    }
+
+    document.getElementById('show-all-sol').addEventListener('click', ()=>{
+      showAll = !showAll; showAllSteps(showAll);
+    });
+
+    document.getElementById('randomize').addEventListener('click', ()=>{
+      // random exercises in range -120..+120
+      function randInt(min,max){ return Math.floor(Math.random()*(max-min+1))+min; }
+      exercises = Array.from({length:5},()=>({A:randInt(-120,120), B:randInt(-120,120)}));
+      renderTasks();
+    });
+
+    let showAll = false;
+    function showAllSteps(toggle){
+      exercises.forEach((_,i)=>{
+        if(toggle) showSteps(i); else document.getElementById(`out-${i}`).style.display='none';
+      });
+    }
+
+    // initial render
+    renderTasks();
+  </script>
+</body>
+</html>
