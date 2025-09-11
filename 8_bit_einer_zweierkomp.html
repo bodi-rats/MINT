@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Übungen: Einer- & Zweierkomplement (8‑Bit)</title>
+  <style>
+    :root{font-family:system-ui,-apple-system,Segoe UI, Roboto, "Helvetica Neue", Arial;}
+    body{max-width:980px;margin:28px auto;padding:20px;background:#f7f8fb;color:#0b0b0b}
+    h1{font-size:1.6rem;margin-bottom:6px}
+    .card{background:#fff;border-radius:10px;padding:16px;margin:12px 0;box-shadow:0 6px 18px rgba(20,20,40,0.06)}
+    .grid{display:grid;grid-template-columns:1fr 180px;gap:12px;align-items:center}
+    label{font-weight:600}
+    .hint{font-size:0.9rem;color:#555}
+    input[type=text]{width:100%;padding:8px;border-radius:8px;border:1px solid #d7d9df;font-family:monospace}
+    button{padding:6px 10px;border-radius:8px;border:0;background:#1f6feb;color:#fff;cursor:pointer}
+    button.secondary{background:#6b7280}
+    .ok{color:#0b7040;font-weight:700}
+    .bad{color:#b91c1c;font-weight:700}
+    .result{margin-top:8px}
+    .solutions{display:none;background:#fbfdff;border-left:4px solid #1f6feb;padding:10px;margin-top:10px}
+    .controls{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+    .small{font-size:0.9rem;color:#444}
+    footer{font-size:0.85rem;color:#666;margin-top:18px}
+  </style>
+</head>
+<body>
+  <h1>Übungen: Einer- & Zweierkomplement (8‑Bit)</h1>
+
+  <div class="card">
+    <h2>Erklärung</h2>
+    <ul class="small">
+      <li><strong>Einerkomplement:</strong> jedes Bit invertieren (0→1, 1→0).</li>
+      <li><strong>Zweierkomplement:</strong> Einerkomplement + 1 (als 8‑Bit, Überlauf verwerfen).</li>
+      <li><strong>Von Dezimal (negativ) zu Zweierkomplement:</strong> Betrag binär darstellen, Einerkomplement bilden, +1 addieren, auf 8 Bit begrenzen.</li>
+      <li><strong>Von Zweierkomplement zu Dezimal:</strong> Führendes Bit = 0 → positive Zahl. Führendes Bit = 1 → invertieren, +1, Ergebnis negativ.</li>
+    </ul>
+  </div>
+
+  <div class="card" id="exercise-einer">
+    <h2>Einerkomplement</h2>
+    <div id="einer-list"></div>
+  </div>
+
+  <div class="card" id="exercise-zweier">
+    <h2>Zweierkomplement</h2>
+    <div id="zweier-list"></div>
+  </div>
+
+  <div class="card" id="exercise-dez2">
+    <h2>Von Dezimal zu Zweierkomplement (8‑Bit)</h2>
+    <div id="dez2-list"></div>
+  </div>
+
+  <div class="card" id="exercise-tw2dec">
+    <h2>Von Zweierkomplement zurück zu Dezimal</h2>
+    <div id="tw2dec-list"></div>
+  </div>
+
+  <div style="display:flex;gap:8px;margin-top:10px">
+    <button id="show-sol" class="secondary">Alle Lösungen zeigen/verstecken</button>
+    <button id="randomize" class="secondary">Zufällige Variation</button>
+  </div>
+
+  <footer>Erstellt für den Unterricht — 8‑Bit Übungen.</footer>
+
+  <script>
+    let tasks = {
+      einer: ['01010101','11110000','00001111','10101010','10000001'],
+      zweier: ['00001100','11111111','01000000','10000000','01111111'],
+      dez2: [-5,-12,-25,-64,-100],
+      tw2dec: ['11111011','10001111','11111110','10101010','11000000']
+    };
+
+    function is8bitBin(s){return /^[01]{8}$/.test(s);} 
+    function invertBits(s){return s.split('').map(b=>b==='0'?'1':'0').join('');}
+    function addOne8bit(bin){let carry=1,res='';for(let i=7;i>=0;i--){let bit=+bin[i];let sum=bit+carry;res=(sum%2)+res;carry=sum>1?1:0;}return res;}
+    function to8bitBinaryUnsigned(n){let s=n.toString(2);return s.padStart(8,'0').slice(-8);}
+    function decToTwosComplement(n){if(n>=0) return to8bitBinaryUnsigned(n);let mag=Math.abs(n);if(mag>127)return null;let unsigned=to8bitBinaryUnsigned(mag);let inv=invertBits(unsigned);return addOne8bit(inv);} 
+    function twosToDec(bin){if(!is8bitBin(bin))return null;if(bin[0]==='0') return parseInt(bin,2);let inv=invertBits(bin);let magBin=addOne8bit(inv);return -parseInt(magBin,2);} 
+
+    function buildList(id, items, type){
+      const container=document.getElementById(id+'-list');
+      container.innerHTML='';
+      items.forEach((it,idx)=>{
+        const row=document.createElement('div');
+        row.className='grid';
+        let left,right;
+        if(type==='dez2'){
+          left=`<div><label>${it} →</label></div>`;
+          right=`<div><input type=text id="${id}-${idx}" placeholder="8-Bit Binär"/></div>`;
+        } else if(type==='tw2dec'){
+          left=`<div><label>${it} →</label></div>`;
+          right=`<div><input type=text id="${id}-${idx}" placeholder="Dezimal"/></div>`;
+        } else {
+          left=`<div><label>${it} →</label></div>`;
+          right=`<div><input type=text id="${id}-${idx}" placeholder="8-Bit Binär"/></div>`;
+        }
+        row.innerHTML=left+right;
+        container.appendChild(row);
+
+        const controls=document.createElement('div');
+        controls.className='controls';
+        const checkBtn=document.createElement('button');
+        checkBtn.textContent='Prüfen';
+        checkBtn.addEventListener('click',()=>checkSingle(id,idx,type));
+        controls.appendChild(checkBtn);
+
+        const sol=document.createElement('div');
+        sol.className='solutions';
+        sol.id=`${id}-${idx}-sol`;
+
+        container.appendChild(controls);
+        container.appendChild(sol);
+      });
+    }
+
+    function computeSolutions(){
+      return {
+        einer: tasks.einer.map(b=>invertBits(b)),
+        zweier: tasks.zweier.map(b=>addOne8bit(invertBits(b))),
+        dez2: tasks.dez2.map(n=>decToTwosComplement(n)),
+        tw2dec: tasks.tw2dec.map(b=>twosToDec(b))
+      };
+    }
+
+    function checkSingle(section,idx,type){
+      const sols=computeSolutions();
+      const input=document.getElementById(`${section}-${idx}`);
+      const solBox=document.getElementById(`${section}-${idx}-sol`);
+      let val=input.value.trim();
+      let correct=false;
+      if(type==='tw2dec'){
+        correct=(Number(val)===sols[section][idx]);
+      } else {
+        correct=(val===sols[section][idx]);
+      }
+      solBox.style.display='block';
+      if(correct){
+        solBox.innerHTML=`<span class=ok>Richtig ✓</span> — Lösung: <code>${sols[section][idx]}</code>`;
+      } else {
+        solBox.innerHTML=`<span class=bad>Falsch ✗</span> — Ihre Eingabe: <code>${val||'(leer)'}</code> — Lösung: <code>${sols[section][idx]}</code>`;
+      }
+    }
+
+    function showSolutions(toggle){
+      const sols=computeSolutions();
+      Object.keys(sols).forEach(k=>{
+        sols[k].forEach((val,i)=>{
+          const el=document.getElementById(`${k}-${i}-sol`);
+          if(!el) return;
+          el.innerHTML=`<strong>Lösung:</strong> <code>${val}</code>`;
+          el.style.display=toggle? 'block':'none';
+        });
+      });
+    }
+
+    document.getElementById('show-sol').addEventListener('click',()=>{solVisible=!solVisible;showSolutions(solVisible)});
+    document.getElementById('randomize').addEventListener('click',()=>{
+      function randBin(){return Array.from({length:8},()=>Math.random()<0.5?'0':'1').join('');}
+      function randInt(min,max){return Math.floor(Math.random()*(max-min+1))+min;}
+      tasks.einer=[randBin(),randBin(),randBin(),randBin(),randBin()];
+      tasks.zweier=[randBin(),randBin(),randBin(),randBin(),randBin()];
+      tasks.dez2=[-randInt(1,120),-randInt(1,100),-randInt(1,80),-randInt(1,64),-randInt(1,127)];
+      tasks.tw2dec=[randBin(),randBin(),randBin(),randBin(),randBin()];
+      renderAll();
+      if(solVisible) showSolutions(true);
+    });
+
+    function renderAll(){
+      buildList('einer',tasks.einer,'bin');
+      buildList('zweier',tasks.zweier,'bin');
+      buildList('dez2',tasks.dez2,'dez2');
+      buildList('tw2dec',tasks.tw2dec,'tw2dec');
+    }
+
+    let solVisible=false;
+    renderAll();
+  </script>
+</body>
+</html>
